@@ -4,23 +4,17 @@ pub mod linux;
 pub mod macos;
 pub mod windows;
 
-use std::{
-    io::{BufRead, BufReader, Cursor, Read, Write},
-    path::PathBuf,
-    process::exit,
-    str::FromStr,
-};
+use std::{path::PathBuf, process::exit, str::FromStr};
 
-use backhand::{FilesystemReader, FilesystemWriter, InnerNode, kind::Kind};
 use color_eyre::Section;
-use colored::Colorize;
 use fs_err::tokio::{
     File, canonicalize, copy, create_dir, create_dir_all, hard_link, remove_dir_all, remove_file,
     rename,
 };
 use indicatif::{MultiProgress, ProgressBar};
 use strum::IntoEnumIterator;
-use tokio::io::{self, AsyncReadExt, AsyncWriteExt};
+use tokio::io::{self, AsyncWriteExt};
+use tracing::{debug, info};
 use walkdir::WalkDir;
 
 use crate::{
@@ -139,7 +133,8 @@ impl Builder {
             let mut p = ProgressBar::new_spinner().with_message("Cleaning Build Folder...");
             p = self.progress_bar.add(p);
             remove_dir_all(&self.paths.build).await?;
-            p.finish_with_message(format!("{} Build Folder cleaned", "[+]".green()));
+            debug!("Build Folder cleaned");
+            p.finish_and_clear();
         }
         create_dir(&self.paths.build).await?;
         Ok(())
@@ -150,15 +145,16 @@ impl Builder {
         let mut p = ProgressBar::new_spinner().with_message("Adding assets...");
         p = self.progress_bar.add(p);
 
+        let mut warned = false;
         if self.strategy == Strategy::BuildDev || finishing_love {
             if !finishing_love {
                 to_link.extend_from_slice(&self.config.layout.bundle);
             }
             for glb in &to_link {
-                for path in glob::glob(&self.paths.root.join(glb).to_string_lossy())
+                let files = glob::glob(&self.paths.root.join(glb).to_string_lossy())
                     .unwrap()
-                    .filter_map(Result::ok)
-                {
+                    .filter_map(Result::ok);
+                for path in files {
                     let pth_b = &self.paths.build.join(
                         &path
                             .strip_prefix(&self.paths.root)
@@ -168,14 +164,19 @@ impl Builder {
                     create_dir_all(&pth_b.parent().expect("Invalid path"))
                         .await
                         .expect("Failed to create file structure");
-                    if pth_b.exists() {
-                        remove_file(&pth_b)
-                            .await
-                            .expect("Failed to clean previous asset");
-                    }
-                    hard_link(&path, &pth_b)
-                        .await
-                        .expect("Failed to link the file");
+                    if let Err(e) = hard_link(&path, &pth_b).await
+                        && !pth_b.exists()
+                        && !pth_b.is_dir()
+                    {
+                        if !warned {
+                            println!("   [-] Failed to overwrite assets");
+                        }
+
+                        tracing::debug!("Failed to overwrite path: {:?}", path);
+                        tracing::debug!("reason: {:?}", e);
+
+                        warned = true;
+                    };
                 }
             }
         } else if let Some(zipper) = zipper {
@@ -188,7 +189,8 @@ impl Builder {
                 }
             }
         }
-        p.finish_with_message(format!("{} Assets Added", "[+]".green()));
+        debug!("Added assets");
+        p.finish_and_clear();
     }
 
     pub async fn handle_conf_file(&self, used_modules: Vec<Modules>) {
@@ -238,14 +240,14 @@ impl Builder {
             used_modules.extend_from_slice(&cfg.modules);
         }
 
-        p.finish_with_message(format!(
-            "{} Built {}",
-            "[+]".green(),
+        debug!(
+            "Built {}",
             input
                 .file_name()
                 .map(|x| x.to_string_lossy().to_string())
                 .unwrap_or(String::new())
-        ));
+        );
+        p.finish_and_clear();
         used_modules
     }
 
@@ -410,6 +412,8 @@ pub async fn build(path: Option<PathBuf>, run: Strategy, bundle: bool) -> color_
             }
         }
     }
+
+    info!("Built sucessfully");
 
     Ok(())
 }

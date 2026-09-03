@@ -1,6 +1,6 @@
-mod android;
 mod commands;
 mod dalbit;
+mod dev_server;
 mod editpe;
 mod home_manager;
 mod toml_conf;
@@ -17,6 +17,8 @@ use tokio::runtime;
 use tracing_error::ErrorLayer;
 use tracing_indicatif::IndicatifLayer;
 use tracing_subscriber::{EnvFilter, fmt, layer::SubscriberExt, util::SubscriberInitExt};
+
+use crate::utils::CliFormatter;
 
 const STACK_SIZE: usize = 4 * 1024 * 1024 * 1024;
 
@@ -46,19 +48,6 @@ fn print_banner() {
 
 fn run() -> ExitCode {
     print_banner();
-    // I use this to generate the schema
-    // {
-    //     let schema = schemars::schema_for!(KaledisConfig);
-    //     let schema2 = schemars::schema_for!(LoveConfig);
-    //     File::create("kaledis.schema.json")
-    //         .unwrap()
-    //         .write_all(serde_json::to_string(&schema).unwrap().as_bytes())
-    //         .unwrap();
-    //     File::create("love.schema.json")
-    //         .unwrap()
-    //         .write_all(serde_json::to_string(&schema2).unwrap().as_bytes())
-    //         .unwrap();
-    // };
     let args = CLI::parse();
     let rt = runtime::Builder::new_multi_thread()
         .enable_io()
@@ -72,13 +61,13 @@ fn run() -> ExitCode {
 fn main() -> color_eyre::Result<ExitCode> {
     color_eyre::install()?;
 
-    let filter =
-        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info,darklua=warn,backhand=warn"));
+    let filter = EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| EnvFilter::new("info,darklua=warn,backhand=warn"));
     let indicatif_layer = IndicatifLayer::new();
     let fmt_layer = fmt::layer()
         .with_target(false)
         .with_writer(std::io::stderr)
-        .event_format(fmt::format().with_level(true));
+        .event_format(CliFormatter);
 
     tracing_subscriber::registry()
         .with(filter)

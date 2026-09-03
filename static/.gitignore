@@ -1,2 +1,5 @@
 .build
 dist
+
+# Folder i use to test, may not be an good example
+new_examples/playground

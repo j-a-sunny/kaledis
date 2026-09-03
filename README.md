@@ -9,14 +9,11 @@ Kaledis is a tool for allowing Luau to be used with Love2D via transpiling, alon
 
 It has many resources to make your life much easier when using Love2D:
 * Transpiles Luau into compatible Love2D code, allowing type annotations, libraries and other features to be implemented.
-* Automatically manages and provides Love2D installations. (WIP)
+* Automatically manages and provides Love2D installations.
 * Simple commands and CLI, you'll get the hang of it in no time.
 * Easily create & ship your project to the current OS you build the project in.
 * A more friendly frontend configuration framework, using a TOML file instead of a *conf.lua*
   * If you need to make it dynamic, we allow you to still use a *conf.lua* file.
-
-## Installation
-*Note: The only available builds are for Windows. MacOS and Linux builds have not been tested.*
 
 ### From Cargo 
 ```bash

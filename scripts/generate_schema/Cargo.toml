@@ -1,0 +1,12 @@
+[package]
+name = "schema_generator"
+version = "4.0.0"
+edition = "2024"
+authors = ["lettuce-magician", "orpos"]
+documentation = "https://github.com/orpos/kaledis/scripts/generate_schema"
+repository = "https://github.com/orpos/kaledis/scripts/generate_schema"
+license-file = "LICENSE.md"
+description = "not meant for external use"
+
+[dependencies]
+kaledis = { path = "../.." }

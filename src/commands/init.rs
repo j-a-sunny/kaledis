@@ -115,8 +115,8 @@ love = "{}"
             ""
         },
         if use_assets_folder {
-            r#"bundle = ["assets/bundle/*"]
-external = ["assets/external/*"]
+            r#"bundle = ["assets/bundle/**/*"]
+external = ["assets/external/**/*"]
 "#
         } else {
             ""

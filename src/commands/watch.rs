@@ -1,6 +1,6 @@
 use std::{
     path::PathBuf,
-    process::exit,
+    process::{Stdio, exit},
     sync::{Arc, RwLock},
     time::Duration,
 };
@@ -18,8 +18,8 @@ use tokio::{
 use tracing::{info, warn};
 
 use crate::{
-    android::DevServer,
     commands::build::{Builder, Strategy},
+    dev_server::DevServer,
     home_manager::CURRENT_PLATFORM,
     utils::relative,
 };
@@ -57,10 +57,10 @@ async fn spawn_file_reader(watching: Arc<RwLock<bool>>, local: &PathBuf, sender:
                     data.iter()
                         .map(|x| x.path.clone())
                         .filter(|x| {
-                            if let Some(ext) = x.extension() {
-                                if ext == "luau" {
-                                    return true;
-                                }
+                            if let Some(ext) = x.extension()
+                                && ext == "luau"
+                            {
+                                return true;
                             };
                             false
                         })
@@ -88,9 +88,9 @@ async fn spawn_keyboard_handler(watching: Arc<RwLock<bool>>, sender: Sender<Mess
                 console::Key::Char('a') | console::Key::Char('A') => {
                     let mut auto_save = watching.write().unwrap();
                     if !*auto_save {
-                        println!("{} {}", "[+]".blue(), "Auto Save enabled");
+                        println!("   {} {}", "[+]".blue(), "Auto Save enabled");
                     } else {
-                        println!("{} {}", "[-]".blue(), "Auto Save disabled");
+                        println!("   {} {}", "[-]".blue(), "Auto Save disabled");
                     }
                     *auto_save = !*auto_save;
                 }
@@ -124,9 +124,6 @@ pub async fn watch(base_path: Option<PathBuf>) {
         return;
     }
 
-    // let configs = KConfig::from_toml_file(local.join("kaledis.toml")).unwrap();
-
-    // let daemon = WatchDaemon::new(&local, love_path, base_path);
     let builder = Builder::new(local.clone(), Strategy::BuildDev, false).await;
 
     let watching = Arc::new(RwLock::new(false));
@@ -136,20 +133,22 @@ pub async fn watch(base_path: Option<PathBuf>) {
     spawn_file_reader(watching, &local, sender.clone()).await;
 
     builder.clean_build_folder().await.unwrap();
+    builder.add_assets(None, false).await;
     builder.transpile().await;
     let mut path = builder
         .home
         .get_path(&builder.config.love, CURRENT_PLATFORM.clone())
         .await;
 
+    // lovec supports logs
     #[cfg(windows)]
-    path.push("love.exe");
+    path.push("lovec.exe");
 
     #[cfg(target_os = "linux")]
     path.push("love2d.AppImage");
 
     let sppawn = async || {
-        #[cfg(target_os="linux")]
+        #[cfg(target_os = "linux")]
         if let Ok(mut chd) = Command::new("chmod")
             .current_dir(&path.parent().unwrap())
             .args(["+x", &path.to_string_lossy()])
@@ -161,6 +160,8 @@ pub async fn watch(base_path: Option<PathBuf>) {
         Command::new(&path)
             .current_dir(&path.parent().unwrap())
             .arg(&builder.paths.build)
+            .stdout(Stdio::inherit())
+            .stderr(Stdio::inherit())
             .spawn()
             .context("Spawning the process")
             .unwrap()
@@ -184,7 +185,7 @@ pub async fn watch(base_path: Option<PathBuf>) {
                     tracing::debug!("{}\n{}", err, "Failed to kill love2d process.".red());
                     tracing::warn!("Failed to kill love2d process.");
                 } else if let Message::CloseLove = message {
-                    println!("{} Closed love.", "[+]".blue());
+                    info!("Closed love");
                 };
             }
         }
@@ -205,6 +206,7 @@ pub async fn watch(base_path: Option<PathBuf>) {
                 builder.add_assets(None, false).await;
                 builder.handle_conf_file(modules).await;
             }
+            info!("Built");
 
             if let None = child {
                 child = Some(sppawn().await);
@@ -212,8 +214,11 @@ pub async fn watch(base_path: Option<PathBuf>) {
             } else if let Some(chd) = &mut child
                 && let Ok(Some(_)) = chd.try_wait()
             {
-                info!("Love died, respawning...");
+                warn!("Love died, respawning...");
                 child = Some(sppawn().await);
+                if let Some(server) = server.take() {
+                    server.close();
+                };
             } else if let Some(files) = &change {
                 if server.is_none() {
                     server = Some(

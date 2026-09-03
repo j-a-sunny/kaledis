@@ -1,4 +1,11 @@
-use std::{path::PathBuf, time::Duration};
+use std::{
+    path::PathBuf,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
+    time::Duration,
+};
 
 use async_compression::tokio::write::{GzipDecoder, GzipEncoder};
 use futures_lite::StreamExt;
@@ -10,6 +17,7 @@ use tokio::{
 
 pub struct DevServer {
     pub writer: OwnedWriteHalf,
+    pub running: Arc<AtomicBool>,
 }
 
 use tokio_util::{
@@ -18,11 +26,6 @@ use tokio_util::{
 };
 
 struct MessageCodec;
-
-struct Message {
-    key: String,
-    gzipped: Vec<u8>,
-}
 
 impl Decoder for MessageCodec {
     type Item = (String, Vec<u8>);
@@ -52,20 +55,28 @@ impl Decoder for MessageCodec {
 
 impl DevServer {
     pub async fn new(addr: String) -> color_eyre::Result<Self> {
-        
         let (read, writer) = TcpStream::connect(addr).await?.into_split();
 
+        let running = Arc::new(AtomicBool::new(true));
+
+        let running_copy = running.clone();
         tokio::spawn(async move {
             let mut buffer = Vec::new();
             let mut framed_reader = FramedRead::new(read, MessageCodec);
 
-            while let Some(Ok((key, value))) = framed_reader.next().await {
+            while running_copy.load(Ordering::Relaxed)
+                && let Some(Ok((key, value))) = framed_reader.next().await
+            {
                 let mut v: Vec<u8> = value;
                 v.remove(0);
                 buffer.clear();
                 let mut decoder = GzipDecoder::new(&mut buffer);
-                decoder.write(&v).await.unwrap();
-                decoder.flush().await.unwrap();
+                if let Err(_) = decoder.write(&v).await {
+                    break;
+                }; 
+                if let Err(_) = decoder.flush().await {
+                    break;
+                };
 
                 if key == "error" {
                     eprintln!("{}", String::from_utf8_lossy(&buffer));
@@ -73,8 +84,14 @@ impl DevServer {
             }
         });
 
-        Ok(Self { writer })
+        Ok(Self { writer, running })
     }
+
+    pub fn close(self) {
+        self.writer.forget();
+        self.running.store(false, Ordering::Relaxed);
+    }
+
     pub async fn dispatch(&mut self, key: &str, contents: Vec<u8>) -> color_eyre::Result<()> {
         self.writer.write(key.as_bytes()).await?;
         self.writer.write(b"\n").await?;

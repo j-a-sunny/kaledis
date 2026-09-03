@@ -14,8 +14,8 @@ use tokio::{
 use tracing::info;
 
 use crate::{
-    android::DevServer,
     commands::build::{Builder, Strategy},
+    dev_server::DevServer,
     utils::relative,
 };
 
