@@ -24,6 +24,8 @@ cargo install kaledis
 
 https://orpos.github.io/kaledis_docs/
 
+## Installation
+
 ### From Releases
 Go to the Releases page and download the zip corresponding to your system.
 
