@@ -32,6 +32,52 @@ Go to the Releases page and download the zip corresponding to your system.
 ### From Source
 Clone the repo, then use `cargo build` to build the project from scratch *Probably all platforms.*
 
+### From Nix
+If you have [Nix](https://nixos.org) with flakes enabled, you can run Kaledis without installing anything:
+```bash
+nix run github:orpos/kaledis
+```
+Or install it into your profile:
+```bash
+nix profile install github:orpos/kaledis
+```
+By default this builds `kaledis` from source (`packages.default`). If you'd rather skip the compile and just fetch the same binary published on the [Releases](../../releases) page, use the `bin` output instead:
+```bash
+nix run github:orpos/kaledis#bin
+nix profile install github:orpos/kaledis#bin
+```
+The `bin` output is only published for `x86_64-linux`, `x86_64-darwin` and `aarch64-darwin`; on other systems (e.g. `aarch64-linux`) use the default source build.
+
+If you've cloned the repo, drop the `github:orpos/kaledis` prefix and run `nix run .` / `nix run .#bin` from the project root instead, or `nix develop` to drop into a shell with the Rust toolchain the project needs.
+
+**Declarative install (NixOS / home-manager)**, by adding kaledis as a flake input to your own system config:
+```nix
+# flake.nix
+{
+  inputs.kaledis.url = "github:orpos/kaledis";
+  # inputs.kaledis.inputs.nixpkgs.follows = "nixpkgs"; # optional, avoids a second nixpkgs eval
+
+  outputs = { self, nixpkgs, kaledis, ... }: {
+    # NixOS:
+    nixosConfigurations.<host> = nixpkgs.lib.nixosSystem {
+      system = "x86_64-linux";
+      modules = [{
+        environment.systemPackages = [
+          kaledis.packages.x86_64-linux.default # or `.bin` for the prebuilt binary
+        ];
+      }];
+    };
+  };
+}
+```
+```nix
+# home-manager, as a module inside the same flake:
+home-manager.users.<user> = { pkgs, ... }: {
+  home.packages = [ kaledis.packages.${pkgs.system}.default ];
+};
+```
+`kaledis.packages.<system>` needs a concrete system string (`x86_64-linux`, `aarch64-darwin`, ...) rather than `system`/`pkgs.system` at the top level of a `nixosSystem` call, since that's evaluated before `pkgs` exists; inside a module (like the home-manager example above) `pkgs.system` works fine.
+
 ## Credits
 - [Dalbit](https://github.com/CavefulGames/dalbit) for the awesome transpiling system.
 - [Editpe](https://github.com/Systemcluster/editpe) for the windows icon manipulation implementation.

@@ -1,3 +1,22 @@
+# Kaledis - A new way to LÖVE (Luau + Love2D)
+#
+# Install / run:
+#   nix run github:orpos/kaledis              # build from source and run
+#   nix run github:orpos/kaledis#bin           # fetch the prebuilt release binary and run
+#   nix profile install github:orpos/kaledis     # install the source build into your profile
+#   nix profile install github:orpos/kaledis#bin # install the prebuilt binary into your profile
+#
+# From a local clone, drop the `github:orpos/kaledis` prefix:
+#   nix run .            # or: nix run .#bin
+#   nix build .           # or: nix build .#bin / .#src
+#   nix develop           # dev shell with the Rust toolchain
+#
+# `packages.bin` only has prebuilt assets for x86_64-linux, x86_64-darwin and
+# aarch64-darwin (whatever orpos/kaledis's release workflow publishes); on
+# other systems (e.g. aarch64-linux) use `packages.default` (the source build).
+#
+# For declarative installation (NixOS/home-manager as a flake input), see the
+# "From Nix" section in README.md.
 {
   description = "Kaledis - A new way to LÖVE (Luau + Love2D)";
 
@@ -32,14 +51,28 @@
           ];
 
           buildInputs = with pkgs; [
-            openssl   # git2 / auth-git2 https support
+            openssl   # git2 / auth-git2 / reqwest's default-tls feature
             libgit2   # git2
             libssh2   # git2 ssh support
             zlib      # backhand / flate2
-          ] ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
+          ] ++ pkgs.lib.optionals pkgs.stdenv.hostPlatform.isDarwin [
             pkgs.darwin.apple_sdk.frameworks.Security
             pkgs.darwin.apple_sdk.frameworks.SystemConfiguration
           ];
+
+          # Even though reqwest is configured with the rustls-tls feature,
+          # its default-features aren't disabled, so default-tls (native-tls
+          # -> openssl-sys) is pulled in too. Left alone, the *-sys crates
+          # try to download and compile vendored copies of OpenSSL/libgit2/
+          # libssh2 from source (which needs perl/cmake and isn't
+          # reproducible) instead of using the ones we already provide
+          # above via buildInputs + pkg-config. These env vars tell them to
+          # use the system libraries instead.
+          env = {
+            OPENSSL_NO_VENDOR = 1;
+            LIBGIT2_SYS_USE_PKG_CONFIG = 1;
+            LIBSSH2_SYS_USE_PKG_CONFIG = 1;
+          };
 
           # mlua's "vendored" feature builds Luau from C source during the
           # build — that just needs a C compiler, which stdenv provides,
@@ -76,10 +109,10 @@
             # extract it ourselves.
             dontUnpack = true;
 
-            nativeBuildInputs = pkgs.lib.optionals pkgs.stdenv.isLinux [
+            nativeBuildInputs = pkgs.lib.optionals pkgs.stdenv.hostPlatform.isLinux [
               pkgs.autoPatchelfHook
             ];
-            buildInputs = pkgs.lib.optionals pkgs.stdenv.isLinux [
+            buildInputs = pkgs.lib.optionals pkgs.stdenv.hostPlatform.isLinux [
               pkgs.zlib
               pkgs.stdenv.cc.cc.lib
             ];
