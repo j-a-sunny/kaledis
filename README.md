@@ -62,18 +62,21 @@ If you've cloned the repo, drop the `github:orpos/kaledis` prefix and run `nix r
 ```nix
 # flake.nix
 {
-  inputs.kaledis.url = "github:j-a-sunny/kaledis";
-  # inputs.kaledis.inputs.nixpkgs.follows = "nixpkgs"; # optional, avoids a second nixpkgs eval
+  inputs = {
+    kaledis.url = "github:j-a-sunny/kaledis";
+  };
 
   outputs = { self, nixpkgs, kaledis, ... }: {
-    # NixOS:
-    nixosConfigurations.<host> = nixpkgs.lib.nixosSystem {
+    nixosConfigurations.<your-hostname> = nixpkgs.lib.nixosSystem {
       system = "x86_64-linux";
-      modules = [{
-        environment.systemPackages = [
-          kaledis.packages.x86_64-linux.default # or `.bin` for the prebuilt binary
-        ];
-      }];
+
+      modules = [
+        {
+          environment.systemPackages = [
+            kaledis.packages.x86_64-linux.default
+          ];
+        }
+      ];
     };
   };
 }
