@@ -37,13 +37,13 @@ Clone the repo, then use `cargo build` to build the project from scratch *Probab
 If you have [Nix](https://nixos.org) with flakes enabled, you can run Kaledis without installing anything:
 
 ```bash
-nix run github:orpos/kaledis
+nix run github:j-a-sunny/kaledis
 ```
 
 Or install it into your profile:
 
 ```bash
-nix profile install github:orpos/kaledis
+nix profile install github:j-a-sunny/kaledis
 ```
 
 By default this builds `kaledis` from source (`packages.default`). If you'd rather skip the compile and just fetch the same binary published on the [Releases](../../releases) page, use the `bin` output instead:
