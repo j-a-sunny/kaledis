@@ -50,7 +50,7 @@ By default this builds `kaledis` from source (`packages.default`). If you'd rath
 
 ```bash
 nix run github:j-a-sunny/kaledis#bin
-nix profile install github:j-a-sunny/kaledis#bin
+nix profile add github:j-a-sunny/kaledis#bin
 ```
 
 The `bin` output is only published for `x86_64-linux`, `x86_64-darwin` and `aarch64-darwin`; on other systems (e.g. `aarch64-linux`) use the default source build.
