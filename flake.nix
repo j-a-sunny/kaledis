@@ -1,22 +1,3 @@
-# Kaledis - A new way to LÖVE (Luau + Love2D)
-#
-# Install / run:
-#   nix run github:orpos/kaledis              # build from source and run
-#   nix run github:orpos/kaledis#bin           # fetch the prebuilt release binary and run
-#   nix profile install github:orpos/kaledis     # install the source build into your profile
-#   nix profile install github:orpos/kaledis#bin # install the prebuilt binary into your profile
-#
-# From a local clone, drop the `github:orpos/kaledis` prefix:
-#   nix run .            # or: nix run .#bin
-#   nix build .           # or: nix build .#bin / .#src
-#   nix develop           # dev shell with the Rust toolchain
-#
-# `packages.bin` only has prebuilt assets for x86_64-linux, x86_64-darwin and
-# aarch64-darwin (whatever orpos/kaledis's release workflow publishes); on
-# other systems (e.g. aarch64-linux) use `packages.default` (the source build).
-#
-# For declarative installation (NixOS/home-manager as a flake input), see the
-# "From Nix" section in README.md.
 {
   description = "Kaledis - A new way to LÖVE (Luau + Love2D)";
 
@@ -55,10 +36,14 @@
             libgit2   # git2
             libssh2   # git2 ssh support
             zlib      # backhand / flate2
-          ] ++ pkgs.lib.optionals pkgs.stdenv.hostPlatform.isDarwin [
-            pkgs.darwin.apple_sdk.frameworks.Security
-            pkgs.darwin.apple_sdk.frameworks.SystemConfiguration
           ];
+          # No explicit Darwin framework buildInputs (Security,
+          # SystemConfiguration, etc. for native-tls) needed here: current
+          # nixpkgs already provides the full Apple SDK frameworks by default
+          # for Darwin builds. Pulling them in individually via
+          # `darwin.apple_sdk.frameworks.*` is the legacy pattern and now
+          # errors ("apple_sdk_11_0 has been removed") on nixpkgs-unstable —
+          # see https://nixos.org/manual/nixpkgs/stable/#sec-darwin-legacy-frameworks
 
           # Even though reqwest is configured with the rustls-tls feature,
           # its default-features aren't disabled, so default-tls (native-tls
